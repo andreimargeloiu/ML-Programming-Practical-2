@@ -47,7 +47,7 @@ def method_split_tokens(g):
             # print all tokens inside this method
             aux = poz
             while aux < len(tokens) and tokens[aux].endPosition <= node.endPosition:
-                sample.append(tokens[aux].contents)
+                sample.append(tokens[aux].contents.lower())
                 aux += 1
 
             list_of_samples.append(sample)
@@ -65,7 +65,7 @@ def load_data_file(file_path: str) -> Iterable[List[str]]:
     Returns:
         Iterable of lists of strings, each a list of tokens observed in the data.
     """
-    with open(rootdir, "rb") as f:
+    with open(file_path, "rb") as f:
         g = Graph()
         g.ParseFromString(f.read())
 
