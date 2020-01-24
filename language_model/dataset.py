@@ -6,15 +6,15 @@ import numpy as np
 from more_itertools import chunked
 from dpu_utils.mlutils.vocabulary import Vocabulary
 
+from graph_pb2 import Graph
+from graph_pb2 import FeatureNode
 
 DATA_FILE_EXTENSION = "proto"
 START_SYMBOL = "%START%"
 END_SYMBOL = "%END%"
 
 
-def get_data_files_from_directory(
-    data_dir: str, max_num_files: Optional[int] = None
-) -> List[str]:
+def get_data_files_from_directory(data_dir: str, max_num_files: Optional[int] = None) -> List[str]:
     files = iglob(
         os.path.join(data_dir, "**/*.%s" % DATA_FILE_EXTENSION), recursive=True
     )
@@ -23,6 +23,36 @@ def get_data_files_from_directory(
     else:
         files = list(files)
     return files
+
+
+def method_split_tokens(g):
+    """
+    Output the tokens of all methods in a file.
+    For each node "METHOD", print the tokens between node.startPosition and node.endPosition
+
+    Complexity: no_nodes + no_tokens_to_print
+    """
+    tokens = list(filter(lambda n: n.type in (
+        FeatureNode.TOKEN, FeatureNode.IDENTIFIER_TOKEN), g.node))
+    poz = 0  # keep track of the starting position of the token of the previous method
+
+    list_of_samples = []
+    for node in g.node:
+        if node.contents == "METHOD":
+            sample = []
+            # advance with the position in the tokens list
+            while poz < len(tokens) and tokens[poz].startPosition < node.startPosition:
+                poz += 1
+
+            # print all tokens inside this method
+            aux = poz
+            while aux < len(tokens) and tokens[aux].endPosition <= node.endPosition:
+                sample.append(tokens[aux].contents)
+                aux += 1
+
+            list_of_samples.append(sample)
+
+    return list_of_samples
 
 
 def load_data_file(file_path: str) -> Iterable[List[str]]:
@@ -35,8 +65,11 @@ def load_data_file(file_path: str) -> Iterable[List[str]]:
     Returns:
         Iterable of lists of strings, each a list of tokens observed in the data.
     """
-    #TODO 2# Insert your data parsing code here
-    return TODO
+    with open(rootdir, "rb") as f:
+        g = Graph()
+        g.ParseFromString(f.read())
+
+        return method_split_tokens(g)
 
 
 def build_vocab_from_data_dir(
