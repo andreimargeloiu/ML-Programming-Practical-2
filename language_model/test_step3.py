@@ -21,7 +21,7 @@ def run(arguments) -> None:
         max_num_files=arguments.get("--max-num-files")
     )
 
-    print("Loaded vocabulary for dataset: ")
+    print("Loaded vocabulary for dataset, which contains %d words" % len(vocab))
     print(" %s [...]" % (str(vocab)[:100]))
 
 

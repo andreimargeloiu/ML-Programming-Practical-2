@@ -92,6 +92,12 @@ def build_vocab_from_data_dir(
     vocab.add_or_get_id(END_SYMBOL)
 
     #TODO 3# Insert your vocabulary-building code here
+    for file in data_files:
+        list_of_samples = load_data_file(file)
+
+        for list_tokens in list_of_samples:
+            for token in list_tokens:
+                vocab.add_or_get_id(token)
 
     return vocab
 
