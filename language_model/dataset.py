@@ -8,6 +8,7 @@ from dpu_utils.mlutils.vocabulary import Vocabulary
 
 from graph_pb2 import Graph
 from graph_pb2 import FeatureNode
+from collections import Counter
 
 DATA_FILE_EXTENSION = "proto"
 START_SYMBOL = "%START%"
@@ -92,12 +93,17 @@ def build_vocab_from_data_dir(
     vocab.add_or_get_id(END_SYMBOL)
 
     #TODO 3# Insert your vocabulary-building code here
+    counter = Counter()
     for file in data_files:
         list_of_samples = load_data_file(file)
 
         for list_tokens in list_of_samples:
             for token in list_tokens:
-                vocab.add_or_get_id(token)
+                counter[token] += 1
+
+    # most common tokens in vocabulary
+    for elem, cnt in counter.most_common(vocab_size - 2):
+        vocab.add_or_get_id (elem)
 
     return vocab
 
@@ -117,7 +123,12 @@ def tensorise_token_sequence(
         List with length elements that are integer IDs of tokens in our vocab.
     """
     #TODO 4# Insert your tensorisation code here
-    return TODO
+    tokens_ids = []
+    tokens_ids.append(vocab.get_id_or_unk(START_SYMBOL))
+    tokens_ids.extend(vocab.get_id_or_unk_multiple(token_seq, pad_to_size=length-2))
+    tokens_ids.append(vocab.get_id_or_unk(END_SYMBOL))
+
+    return tokens_ids
 
 
 def load_data_from_dir(
