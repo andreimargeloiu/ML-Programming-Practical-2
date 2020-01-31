@@ -158,17 +158,17 @@ class LanguageModelTF2(tf.keras.Model):
         # token_ce_loss = tf.reduce_mean(token_ce_loss) becomes redundant, because I do it at TODO 7
 
         # TODO 6# Compute number of (correct) predictions
-        num_tokens = tf.constant((rnn_output_logits.shape[0]-1) * (rnn_output_logits.shape[1]-1))
-
         pad_id = self.vocab.get_id_or_unk(self.vocab.get_pad())
         mask = tf.logical_not(tf.equal(target_token_seq, pad_id))[:, 1:]
 
-        # compute the equals between tokens and predictions, and apply the mask to remove tokens
-        num_correct_tokens = tf.math.count_nonzero(
-            tf.boolean_mask(
-                tf.equal(target_token_seq[:, 1:], tf.argmax(rnn_output_logits[:, :-1], axis=2)),
-                mask),
-            dtype=tf.float32)
+        # compute predictions correctness and drop the padding by applying the mask
+        predictions_status = tf.boolean_mask(
+            tf.equal(target_token_seq[:, 1:], tf.argmax(rnn_output_logits[:, :-1], axis=2)),
+            mask
+        )
+
+        num_tokens = len(predictions_status)
+        num_correct_tokens = tf.math.count_nonzero(predictions_status, dtype=tf.float32)
 
         # TODO 7# Mask out CE loss for padding tokens
         token_ce_loss = tf.boolean_mask(token_ce_loss, mask)
