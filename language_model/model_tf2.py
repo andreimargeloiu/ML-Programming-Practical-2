@@ -5,7 +5,7 @@ from typing import Dict, Any, NamedTuple, Iterable, List
 import numpy as np
 import tensorflow.compat.v2 as tf
 from dpu_utils.mlutils.vocabulary import Vocabulary
-
+from tensorflow_core.python.keras.layers import Embedding
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 tf.get_logger().setLevel("ERROR")
@@ -36,8 +36,13 @@ class LanguageModelTF2(tf.keras.Model):
         }
 
     def __init__(self, hyperparameters: Dict[str, Any], vocab: Vocabulary,) -> None:
+        super(LanguageModelTF2, self).__init__()
+
         self.hyperparameters = hyperparameters
         self.vocab = vocab
+        self.gru = tf.keras.layers.GRU(self.hyperparameters['rnn_hidden_dim'], return_sequences=True)
+        self.dense   = tf.keras.layers.Dense(self.hyperparameters['max_vocab_size'])
+
 
         # Also prepare optimizer:
         optimizer_name = self.hyperparameters["optimizer"].lower()
@@ -62,7 +67,7 @@ class LanguageModelTF2(tf.keras.Model):
         else:
             raise Exception('Unknown optimizer "%s".' % (self.params["optimizer"]))
 
-        super().__init__()
+
 
     @property
     def run_id(self):
@@ -113,8 +118,17 @@ class LanguageModelTF2(tf.keras.Model):
             for each timestep for each batch element.
         """
         # TODO 5# 1) Embed tokens
+        embeddings = Embedding(input_dim=self.hyperparameters['max_vocab_size'],
+                               output_dim=self.hyperparameters['token_embedding_size'],
+                               input_length=self.hyperparameters['max_seq_length'])(token_ids)
+
         # TODO 5# 2) Run RNN on embedded tokens
+        # The layers are created in the constructor
+        cell_output = self.gru(embeddings, training=training)
+
         # TODO 5# 3) Project RNN outputs onto the vocabulary to obtain logits.
+        rnn_output_logits = self.dense(cell_output)
+
         return rnn_output_logits
 
     def compute_loss_and_acc(
@@ -138,13 +152,27 @@ class LanguageModelTF2(tf.keras.Model):
             input t; hence its target output is assumed to be target_token_seq[i, t+1].
         """
         # TODO 5# 4) Compute CE loss for all but the last timestep:
-        token_ce_loss = TODO
+        token_ce_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+            labels=target_token_seq[:,1:],
+            logits=rnn_output_logits[:,:-1,:])
+        # token_ce_loss = tf.reduce_mean(token_ce_loss) becomes redundant, because I do it at TODO 7
 
         # TODO 6# Compute number of (correct) predictions
-        num_tokens = tf.constant(0)
-        num_correct_tokens = tf.constant(0)
+        num_tokens = tf.constant((rnn_output_logits.shape[0]-1) * (rnn_output_logits.shape[1]-1))
+
+        pad_id = self.vocab.get_id_or_unk(self.vocab.get_pad())
+        mask = tf.logical_not(tf.equal(target_token_seq, pad_id))[:, 1:]
+
+        # compute the equals between tokens and predictions, and apply the mask to remove tokens
+        num_correct_tokens = tf.math.count_nonzero(
+            tf.boolean_mask(
+                tf.equal(target_token_seq[:, 1:], tf.argmax(rnn_output_logits[:, :-1], axis=2)),
+                mask),
+            dtype=tf.float32)
 
         # TODO 7# Mask out CE loss for padding tokens
+        token_ce_loss = tf.boolean_mask(token_ce_loss, mask)
+        token_ce_loss = tf.reduce_mean(token_ce_loss)
 
         return LanguageModelLoss(token_ce_loss, num_tokens, num_correct_tokens)
 
@@ -163,6 +191,7 @@ class LanguageModelTF2(tf.keras.Model):
         for step, minibatch_data in enumerate(minibatches):
             with tf.GradientTape() as tape:
                 model_outputs = self.compute_logits(minibatch_data, training=training)
+
                 result = self.compute_loss_and_acc(model_outputs, minibatch_data)
 
             total_loss += result.token_ce_loss

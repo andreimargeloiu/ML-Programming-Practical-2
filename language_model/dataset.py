@@ -94,7 +94,7 @@ def build_vocab_from_data_dir(
 
     #TODO 3# Insert your vocabulary-building code here
     counter = Counter()
-    for file in data_files:
+    for file in data_files: # for each file, count all tokens
         list_of_samples = load_data_file(file)
 
         for list_tokens in list_of_samples:
@@ -102,8 +102,9 @@ def build_vocab_from_data_dir(
                 counter[token] += 1
 
     # most common tokens in vocabulary
+    # Take vocab_size -2 because we need to also store START_SYMBOL and END_SYMBOL
     for elem, cnt in counter.most_common(vocab_size - 2):
-        vocab.add_or_get_id (elem)
+        vocab.add_or_get_id(elem)
 
     return vocab
 
@@ -125,8 +126,11 @@ def tensorise_token_sequence(
     #TODO 4# Insert your tensorisation code here
     tokens_ids = []
     tokens_ids.append(vocab.get_id_or_unk(START_SYMBOL))
-    tokens_ids.extend(vocab.get_id_or_unk_multiple(token_seq, pad_to_size=length-2))
-    tokens_ids.append(vocab.get_id_or_unk(END_SYMBOL))
+    tokens_ids.extend(vocab.get_id_or_unk_multiple(token_seq, pad_to_size=length-1))
+
+    # END_SYMBOL must be the last element in the tokenised sequence
+    end_position = min(1 + len(token_seq), length-1)
+    tokens_ids[end_position] = vocab.get_id_or_unk(END_SYMBOL)
 
     return tokens_ids
 
@@ -147,6 +151,7 @@ def load_data_from_dir(
         numpy int32 array of shape [None, length], containing the tensorised
         data.
     """
+    # TODO 2# Insert your data parsing code here
     data_files = get_data_files_from_directory(data_dir, max_num_files)
     data = np.array(
         list(
