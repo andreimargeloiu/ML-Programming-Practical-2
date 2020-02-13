@@ -40,6 +40,9 @@ class LanguageModelTF2(tf.keras.Model):
 
         self.hyperparameters = hyperparameters
         self.vocab = vocab
+        self.embedding = Embedding(input_dim=self.hyperparameters['max_vocab_size'],
+                                   output_dim=self.hyperparameters['token_embedding_size'],
+                                   input_length=self.hyperparameters['max_seq_length'])
         self.gru = tf.keras.layers.GRU(self.hyperparameters['rnn_hidden_dim'], return_sequences=True)
         self.dense   = tf.keras.layers.Dense(self.hyperparameters['max_vocab_size'])
 
@@ -118,9 +121,7 @@ class LanguageModelTF2(tf.keras.Model):
             for each timestep for each batch element.
         """
         # TODO 5# 1) Embed tokens
-        embeddings = Embedding(input_dim=self.hyperparameters['max_vocab_size'],
-                               output_dim=self.hyperparameters['token_embedding_size'],
-                               input_length=self.hyperparameters['max_seq_length'])(token_ids)
+        embeddings = self.embedding(token_ids)
 
         # TODO 5# 2) Run RNN on embedded tokens
         # The layers are created in the constructor
